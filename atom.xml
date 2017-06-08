@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://yoursite.com/"/>
-  <updated>2017-06-08T09:28:20.000Z</updated>
+  <updated>2017-06-08T09:42:29.000Z</updated>
   <id>http://yoursite.com/</id>
   
   <author>
@@ -20,7 +20,7 @@
     <link href="http://yoursite.com/2017/06/high-performance-equals-ignore-case/"/>
     <id>http://yoursite.com/2017/06/high-performance-equals-ignore-case/</id>
     <published>2017-06-08T03:28:00.000Z</published>
-    <updated>2017-06-08T09:28:20.000Z</updated>
+    <updated>2017-06-08T09:42:29.000Z</updated>
     
     <content type="html"><![CDATA[<p>先说说我遇到的场景：由于Oracle的JDBC驱动（version&lt;11.2）无法通过数据源参数来开关StatementCache功能，所以在设计连接池时需自己实现这个开关功能。我的做法是开放可配置的系统参数，用户根据需要自行设置。</p>
 <p>举个栗子：</p>
@@ -36,7 +36,7 @@
 <p>使用1和0作为开关值并不少见，并且转换成数字在内存中比较的效率也不低。</p>
 </li>
 </ul>
-<p>最终选择第一种true/false的方案，选择依据其实很简单，觉得1/0与<em>enableStatementCache</em>参数名有点违和，true/false显得人性化，说明我们的产品是有生命，有温度的。</p>
+<p>最终选择第一种true/false的方案，选择依据其实很简单，觉得1/0与<em>enableStatementCache</em>参数名有点违和，而true/false显得更人性化，进一步说明我们的产品是有生命，有温度的。</p>
 <p>接下来，我们需要做的事情是判断<em>enableStatementCache</em>的值是true还是false。实现这个判断的做法很多，市面上两种常用的做法是字符串比较和转换成布尔值再比较。</p>
 <h3 id="字符串比较"><a href="#字符串比较" class="headerlink" title="字符串比较"></a>字符串比较</h3><p>常用的比较字符串的API有两个，它们的差异在于是否对大小写敏感。</p>
 <figure class="highlight"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">// 大小写敏感</div><div class="line">java.lang.String#equals</div><div class="line">// 大小写不敏感</div><div class="line">java.lang.String#equalsIgnoreCase</div></pre></td></tr></table></figure>
