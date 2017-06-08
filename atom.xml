@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://yoursite.com/"/>
-  <updated>2017-06-08T02:30:55.000Z</updated>
+  <updated>2017-06-08T08:00:43.000Z</updated>
   <id>http://yoursite.com/</id>
   
   <author>
@@ -14,6 +14,63 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>特定场景下String#equalsIgnoreCase的替代方案</title>
+    <link href="http://yoursite.com/2017/06/high-performance-equals-ignore-case/"/>
+    <id>http://yoursite.com/2017/06/high-performance-equals-ignore-case/</id>
+    <published>2017-06-08T03:28:00.000Z</published>
+    <updated>2017-06-08T08:00:43.000Z</updated>
+    
+    <content type="html"><![CDATA[<p>先说说我遇到的场景：由于Oracle的JDBC驱动无法通过数据源参数来开关StatementCache功能，所以在设计连接池时需自己实现这个开关功能。我的做法是开放可配置的系统参数，用户根据需要自行设置。</p>
+<p>举个栗子：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"># 开启Oracle连接的语句缓存</div><div class="line">datasource.enableStatementCache=true</div><div class="line"># 设置Oracle连接缓存语句的个数</div><div class="line">datasource.statementCacheSize=500</div></pre></td></tr></table></figure>
+<a id="more"></a>
+<p>以上就是场景中描述的开关配置。</p>
+<p>在我定义<em>enableStatementCache</em>参数值时遇到了问题，纠结于以下两种选择：</p>
+<ul>
+<li><p><strong>true/false</strong> </p>
+<p>最先想到的就是布尔值，这似乎也更符合人性化设计。但是Properties文件是以字符串的形式加载到内存里的，在使用时需要进行字符串比较。后续会说到字符串比较的细节。</p>
+</li>
+<li><p><strong>1/0</strong></p>
+<p>使用1和0作为开关值并不少见，并且转换成数字在内存中比较的效率也不低。</p>
+</li>
+</ul>
+<p>最终选择第一种true/false的方案，选择依据其实很简单，觉得1/0与<em>enableStatementCache</em>参数名有点违和，true/false显得人性化，说明我们的产品是有生命，有温度的。</p>
+<p>接下来，我们需要做的事情是判断<em>enableStatementCache</em>的值是true还是false。实现这个判断的做法很多，市面上两种常用的做法是字符串比较和转换成布尔值再比较。</p>
+<h3 id="字符串比较"><a href="#字符串比较" class="headerlink" title="字符串比较"></a>字符串比较</h3><p>常用的比较字符串的API有两个，它们的差异在于是否对大小写敏感。</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">// 大小写敏感</div><div class="line">java.lang.String#equals</div><div class="line">// 大小写不敏感</div><div class="line">java.lang.String#equalsIgnoreCase</div></pre></td></tr></table></figure>
+<p>实际使用时用户不太可能严格遵守大小写的约定，所以使用对大小写不敏感的API。代码片段如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">jdkEqualsIgnoreCase</span><span class="params">()</span> </span>&#123;</div><div class="line">  <span class="comment">// true --&gt; expected value</span></div><div class="line">  <span class="comment">// True --&gt; user input</span></div><div class="line">  <span class="keyword">if</span> (<span class="string">"true"</span>.equalsIgnoreCase(<span class="string">"True"</span>)) &#123;</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>执行1亿次字符串直接比较的耗时平均在2000毫秒左右：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">Jdk.equalsIgnoreCase Costs:2644</div><div class="line">Jdk.equalsIgnoreCase Costs:2013</div><div class="line">Jdk.equalsIgnoreCase Costs:1991</div><div class="line">Jdk.equalsIgnoreCase Costs:1993</div><div class="line">Jdk.equalsIgnoreCase Costs:2005</div></pre></td></tr></table></figure>
+<h3 id="转换成布尔值再比较"><a href="#转换成布尔值再比较" class="headerlink" title="转换成布尔值再比较"></a>转换成布尔值再比较</h3><p>转换成布尔值再进行比较比较简单。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">boolEquals</span><span class="params">()</span> </span>&#123;</div><div class="line">  <span class="comment">// True --&gt; user input</span></div><div class="line">  <span class="keyword">if</span> (Boolean.valueOf(<span class="string">"True"</span>) == Boolean.TRUE) &#123;</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>其实<em>java.lang.Boolean#valueOf(java.lang.String)</em>也是通过<em>java.lang.String#equalsIgnoreCase</em>实现的。</p>
+<p>执行1亿次转换成布尔值再比较平均耗时在2000毫秒左右。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">Boolean.equals Costs:2865</div><div class="line">Boolean.equals Costs:1978</div><div class="line">Boolean.equals Costs:1998</div><div class="line">Boolean.equals Costs:2004</div><div class="line">Boolean.equals Costs:2023</div></pre></td></tr></table></figure>
+<h3 id="优化比较算法一"><a href="#优化比较算法一" class="headerlink" title="优化比较算法一"></a>优化比较算法一</h3><p>分析一下这个比较的场景，如果用户想开启cache功能，那么需要我们考虑的入参就是{[T,t], [R,r], [U,u], [E,e]}四组字符的组合，一共16种可能性。只要入参是这16种组合里的任意一个，就认为入参是true。</p>
+<p>那么这16种组合是什么呢？我们使用代码来快速穷举。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">private</span> <span class="keyword">static</span> Map&lt;String, Integer&gt; boolBag;</div><div class="line"><span class="keyword">static</span> &#123;</div><div class="line">  boolBag = <span class="keyword">new</span> HashMap&lt;&gt;();</div><div class="line">  <span class="keyword">char</span>[] </div><div class="line">      t = &#123;<span class="string">'t'</span>, <span class="string">'T'</span>&#125;, </div><div class="line">      r = &#123;<span class="string">'r'</span>, <span class="string">'R'</span>&#125;, </div><div class="line">      u = &#123;<span class="string">'u'</span>, <span class="string">'U'</span>&#125;, </div><div class="line">      e = &#123;<span class="string">'e'</span>, <span class="string">'E'</span>&#125;;</div><div class="line">  </div><div class="line">  <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">16</span>; i++) &#123;</div><div class="line">    boolBag.put(<span class="string">""</span> </div><div class="line">        + t[(i &amp; <span class="number">0b1000</span>) &gt;&gt; <span class="number">3</span>] </div><div class="line">        + r[(i &amp; <span class="number">0b0100</span>) &gt;&gt; <span class="number">2</span>] </div><div class="line">        + u[(i &amp; <span class="number">0b0010</span>) &gt;&gt; <span class="number">1</span>] </div><div class="line">        + e[i &amp; <span class="number">0b0001</span>], <span class="number">1</span>);</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>最终<em>boolBag</em>的key就是穷举出来的16种组合。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">&#123;True=1, TruE=1, TrUe=1, TrUE=1, TRue=1, TRuE=1, TRUe=1, TRUE=1, true=1, truE=1, trUe=1, trUE=1, tRue=1, tRuE=1, tRUe=1, tRUE=1&#125;</div></pre></td></tr></table></figure>
+<p>只要输入在这16种组合中就认为是真值。</p>
+<p>使用Map.containsKey(Object)判断真值的执行效率如何呢？看下边的测试结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">Hash key Costs:680</div><div class="line">Hash key Costs:681</div><div class="line">Hash key Costs:682</div><div class="line">Hash key Costs:734</div><div class="line">Hash key Costs:688</div></pre></td></tr></table></figure>
+<p>从测试结果来看，效率提升了3-4倍，提升效果还是比较可观的。如果按照现有思路，效率方面还有没有继续提升的空间呢？</p>
+<p>今天先写到这里，后续应该还有两种算法来提升这种特定场景的比较效率问题。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;先说说我遇到的场景：由于Oracle的JDBC驱动无法通过数据源参数来开关StatementCache功能，所以在设计连接池时需自己实现这个开关功能。我的做法是开放可配置的系统参数，用户根据需要自行设置。&lt;/p&gt;
+&lt;p&gt;举个栗子：&lt;/p&gt;
+&lt;figure class=&quot;highlight plain&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;div class=&quot;line&quot;&gt;1&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;2&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;3&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;4&lt;/div&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;div class=&quot;line&quot;&gt;# 开启Oracle连接的语句缓存&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;datasource.enableStatementCache=true&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;# 设置Oracle连接缓存语句的个数&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;datasource.statementCacheSize=500&lt;/div&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+    
+    </summary>
+    
+    
+  </entry>
   
   <entry>
     <title>简单选择排序算法</title>

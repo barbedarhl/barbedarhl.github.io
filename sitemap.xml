@@ -2,6 +2,13 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>http://yoursite.com/2017/06/high-performance-equals-ignore-case/</loc>
+    
+    <lastmod>2017-06-08T08:00:43.000Z</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>http://yoursite.com/2015/10/nginx-serves-multi-server-names/</loc>
     
     <lastmod>2017-06-08T02:36:05.000Z</lastmod>
