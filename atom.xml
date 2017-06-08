@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://yoursite.com/"/>
-  <updated>2017-06-08T08:00:43.000Z</updated>
+  <updated>2017-06-08T09:28:20.000Z</updated>
   <id>http://yoursite.com/</id>
   
   <author>
@@ -20,9 +20,9 @@
     <link href="http://yoursite.com/2017/06/high-performance-equals-ignore-case/"/>
     <id>http://yoursite.com/2017/06/high-performance-equals-ignore-case/</id>
     <published>2017-06-08T03:28:00.000Z</published>
-    <updated>2017-06-08T08:00:43.000Z</updated>
+    <updated>2017-06-08T09:28:20.000Z</updated>
     
-    <content type="html"><![CDATA[<p>先说说我遇到的场景：由于Oracle的JDBC驱动无法通过数据源参数来开关StatementCache功能，所以在设计连接池时需自己实现这个开关功能。我的做法是开放可配置的系统参数，用户根据需要自行设置。</p>
+    <content type="html"><![CDATA[<p>先说说我遇到的场景：由于Oracle的JDBC驱动（version&lt;11.2）无法通过数据源参数来开关StatementCache功能，所以在设计连接池时需自己实现这个开关功能。我的做法是开放可配置的系统参数，用户根据需要自行设置。</p>
 <p>举个栗子：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"># 开启Oracle连接的语句缓存</div><div class="line">datasource.enableStatementCache=true</div><div class="line"># 设置Oracle连接缓存语句的个数</div><div class="line">datasource.statementCacheSize=500</div></pre></td></tr></table></figure>
 <a id="more"></a>
@@ -63,7 +63,7 @@
     
     <summary type="html">
     
-      &lt;p&gt;先说说我遇到的场景：由于Oracle的JDBC驱动无法通过数据源参数来开关StatementCache功能，所以在设计连接池时需自己实现这个开关功能。我的做法是开放可配置的系统参数，用户根据需要自行设置。&lt;/p&gt;
+      &lt;p&gt;先说说我遇到的场景：由于Oracle的JDBC驱动（version&amp;lt;11.2）无法通过数据源参数来开关StatementCache功能，所以在设计连接池时需自己实现这个开关功能。我的做法是开放可配置的系统参数，用户根据需要自行设置。&lt;/p&gt;
 &lt;p&gt;举个栗子：&lt;/p&gt;
 &lt;figure class=&quot;highlight plain&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;div class=&quot;line&quot;&gt;1&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;2&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;3&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;4&lt;/div&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;div class=&quot;line&quot;&gt;# 开启Oracle连接的语句缓存&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;datasource.enableStatementCache=true&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;# 设置Oracle连接缓存语句的个数&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;datasource.statementCacheSize=500&lt;/div&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
     
