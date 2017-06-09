@@ -4,9 +4,9 @@
   <subtitle>Integrity &amp; Think Deeply</subtitle>
   <link href="/atom.xml" rel="self"/>
   
-  <link href="http://yoursite.com/"/>
+  <link href="http://0x0010.com/"/>
   <updated>2017-06-08T09:42:29.000Z</updated>
-  <id>http://yoursite.com/</id>
+  <id>http://0x0010.com/</id>
   
   <author>
     <name>Sam Tsai</name>
@@ -17,8 +17,8 @@
   
   <entry>
     <title>特定场景下String#equalsIgnoreCase的替代方案</title>
-    <link href="http://yoursite.com/2017/06/high-performance-equals-ignore-case/"/>
-    <id>http://yoursite.com/2017/06/high-performance-equals-ignore-case/</id>
+    <link href="http://0x0010.com/2017/06/high-performance-equals-ignore-case/"/>
+    <id>http://0x0010.com/2017/06/high-performance-equals-ignore-case/</id>
     <published>2017-06-08T03:28:00.000Z</published>
     <updated>2017-06-08T09:42:29.000Z</updated>
     
@@ -74,8 +74,8 @@
   
   <entry>
     <title>简单选择排序算法</title>
-    <link href="http://yoursite.com/2016/06/simple-select-sort-algorithm/"/>
-    <id>http://yoursite.com/2016/06/simple-select-sort-algorithm/</id>
+    <link href="http://0x0010.com/2016/06/simple-select-sort-algorithm/"/>
+    <id>http://0x0010.com/2016/06/simple-select-sort-algorithm/</id>
     <published>2016-06-18T06:52:31.000Z</published>
     <updated>2017-06-08T02:30:55.000Z</updated>
     
@@ -99,8 +99,8 @@
   
   <entry>
     <title>Nginx多域名配置</title>
-    <link href="http://yoursite.com/2015/10/nginx-serves-multi-server-names/"/>
-    <id>http://yoursite.com/2015/10/nginx-serves-multi-server-names/</id>
+    <link href="http://0x0010.com/2015/10/nginx-serves-multi-server-names/"/>
+    <id>http://0x0010.com/2015/10/nginx-serves-multi-server-names/</id>
     <published>2015-10-06T07:11:28.000Z</published>
     <updated>2017-06-08T02:36:05.000Z</updated>
     
