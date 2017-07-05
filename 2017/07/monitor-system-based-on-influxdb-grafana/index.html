@@ -1,0 +1,97 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><title> 使用influxdb和grafana快速开发监控系统 · SAM EZ GUD</title><meta name="description" content="使用influxdb和grafana快速开发监控系统 - Sam Tsai"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="http://7xsp25.com1.z0.glb.clouddn.com/image/virus-min.png"><link rel="stylesheet" href="/css/apollo.css"><link rel="search" type="application/opensearchdescription+xml" href="http://0x0010.com/atom.xml" title="SAM EZ GUD"></head><body><div class="wrap"><header><a href="/" class="logo-link"><img src="http://7xsp25.com1.z0.glb.clouddn.com/image/virus-min.png" alt="logo"></a><ul class="nav nav-list"><li class="nav-list-item"><a href="/" target="_self" class="nav-list-link">BLOG</a></li><li class="nav-list-item"><a href="/archives/" target="_self" class="nav-list-link">ARCHIVE</a></li><li class="nav-list-item"><a href="https://github.com/0x0010" target="_blank" class="nav-list-link">GITHUB</a></li><li class="nav-list-item"><a href="/atom.xml" target="_self" class="nav-list-link">RSS</a></li></ul></header><main class="container"><div class="post"><article class="post-block"><h1 class="post-title">使用influxdb和grafana快速开发监控系统</h1><div class="post-info">Jul 5, 2017</div><div class="post-content"><p>使用过云产品（或者做过运维工作）的同学对监控肯定都不陌生。通常，云厂商在管理员工具里都会提供监控功能，比如玲琅满目的图表以及告警等。毕竟在一个优秀的系统生态里，监控是非常重要的组成部分。通过监控系统，我们可以更直观地了解当前系统运行的状态，便于及时地保障系统的可用性，比如主机性能的升级，对一些核心API进行防止崩溃的限流等。</p>
+<p>说到系统崩溃，不禁让我想起一段难忘的经历，那种无助与挣扎很是煎熬，不提也罢。都说吃一堑长一智，做系统也需要未雨绸缪，跟兵书里带兵打仗的道理一样一样的，如果没有沙盘，没有实时军情汇报，等待他们的只有兵败。</p>
+<p>&lt;!— more —&gt;</p>
+<h3 id="监控是什么"><a href="#监控是什么" class="headerlink" title="监控是什么"></a>监控是什么</h3><p>个人理解，监控指标为两大类，分别是系统级指标和业务应用级指标。</p>
+<p><strong>系统级指标</strong>具体包括哪些，先看看wikipedia对系统监控的描述。</p>
+<blockquote>
+<p>Software monitors occur more commonly, sometimes as a part of a widget engine. These monitoring systems are often used to keep track of system resources, such as CPU usage and frequency, or the amount of free RAM. They are also used to display items such as free space on one or more hard drives, the temperature of the CPU and other important components, and networking information including the system IP address and current rates of upload and download. Other possible displays may include the date and time, system uptime, computer name, username, hard drive S.M.A.R.T. data, fan speeds, and the voltages being provided by the power supply.</p>
+</blockquote>
+<p>总结起来，包括CPU、内存、存储、网络IO等，这些都是系统运维需要关心的数据。</p>
+<p>对于<strong>业务应用级指标</strong>，没有绝对的标准，功能各异的业务应用有各自关心的指标。比如API类应用需要关心三个方面，接口是否可用（Availability），实时的性能如何（Performance）以及接口的正确性（Correctness）。参考<a href="https://www.pagerduty.com/blog/runscope-api-monitoring/" target="_blank" rel="external">API Monitoring: Up Is Not Enough</a>。</p>
+<p>监控，包含“监”和“控”。这篇文章的主题聚焦在“监”字上，我们实现一个具备完整监控功能的Demo，包括CPU，网络，API请求次数以及API被请求的速率。</p>
+<p>先看看最终的监控图表截图</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNc79gy1fh9de00y9bj31kw0jy0yp.jpg" alt=""></p>
+<h3 id="技术选型"><a href="#技术选型" class="headerlink" title="技术选型"></a>技术选型</h3><p>说了这么多，是时候切入主题了。</p>
+<p>先是技术选型</p>
+<ul>
+<li>springboot，业务系统使用springboot开发一个Http RESTful API。</li>
+<li>telegraf，influxdb家的采集工具，数据采集就用它了。<a href="https://github.com/influxdata/telegraf" target="_blank" rel="external">点击传送</a></li>
+<li>influxdb，时序数据库，用于存储采集器采集到指标数据。<a href="https://github.com/influxdata/influxdb" target="_blank" rel="external">点击传送</a></li>
+<li>grafana，基于时序数据库图形化展示数据的工具。<a href="https://grafana.com/" target="_blank" rel="external">点击传送</a></li>
+</ul>
+<p>个人非常喜欢grafana的图形界面，图表动态刷新，黑白两种主题可选，尤其在大屏展示时选择黑色主题非常酷。</p>
+<h3 id="安装时序数据库influxdb"><a href="#安装时序数据库influxdb" class="headerlink" title="安装时序数据库influxdb"></a>安装时序数据库influxdb</h3><p>数据库下载地址：<a href="https://portal.influxdata.com/downloads#influxdb" target="_blank" rel="external">https://portal.influxdata.com/downloads#influxdb</a></p>
+<p>选择与自己环境相关的安装方式进行安装。</p>
+<p>安装完毕，用浏览器访问AdminUI的地址<a href="http://influxdb-ip-address:8083" target="_blank" rel="external">http://influxdb-ip-address:8083</a></p>
+<p><img src="https://ws4.sinaimg.cn/large/006tNc79gy1fh92aiohhuj319g0tk0wq.jpg" alt=""></p>
+<p>我们通过此UI工具来新建数据库和查询measurements。</p>
+<p>先为接下来的监控创建一个数据库</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">create</span> <span class="keyword">database</span> monitor</div></pre></td></tr></table></figure>
+<p>查询数据库下的measurements之前，我们需要先点击右上角的database下拉菜单来切换数据库。</p>
+<p>查询measurements的脚本是</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">show</span> measurements</div></pre></td></tr></table></figure>
+<h3 id="安装采集器Telegraf"><a href="#安装采集器Telegraf" class="headerlink" title="安装采集器Telegraf"></a>安装采集器Telegraf</h3><p>采集器telegraf也是influxdata出的开源产品，使用go语言编写，插件丰富，可扩展性强。</p>
+<p>项目地址：<a href="https://github.com/influxdata/telegraf" target="_blank" rel="external">https://github.com/influxdata/telegraf</a></p>
+<p>我们下载Release出来的官方编译版本：<a href="https://github.com/influxdata/telegraf/releases" target="_blank" rel="external">https://github.com/influxdata/telegraf/releases</a></p>
+<p>根据自己环境选择介质下载并安装。安装完毕之后，根据官方教程了解一下配置文件。我先给一个精简的配置文件，后续的插件功能可以在此基础上增加。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div></pre></td><td class="code"><pre><div class="line">[global_tags]</div><div class="line"><span class="meta"></span></div><div class="line"># Configuration for telegraf agent</div><div class="line">[agent]</div><div class="line">  interval = "10s"</div><div class="line">  round_interval = true</div><div class="line">  metric_batch_size = 1000</div><div class="line">  metric_buffer_limit = 10000</div><div class="line">  collection_jitter = "0s"</div><div class="line">  flush_interval = "10s"</div><div class="line">  flush_jitter = "0s"</div><div class="line">  precision = ""</div><div class="line">  debug = false</div><div class="line">  quiet = false</div><div class="line">  logfile = ""</div><div class="line">  hostname = "192.168.37.1"</div><div class="line">  omit_hostname = false</div><div class="line"></div><div class="line">[[outputs.influxdb]]</div><div class="line">  urls = ["http://192.168.37.10:8086"] # required</div><div class="line">  database = "monitor" # required</div><div class="line">  retention_policy = ""</div><div class="line">  write_consistency = "any"</div><div class="line">  timeout = "5s"</div><div class="line"></div><div class="line">[[inputs.cpu]]</div><div class="line">  percpu = false</div><div class="line">  totalcpu = true</div><div class="line">  fieldpass = ["usage_idle", "usage_iowait", "usage_system", "usage_user"]</div><div class="line">  name_override = "cpu"</div><div class="line"></div><div class="line">[[inputs.net]]</div><div class="line">  interfaces = ["en0"]</div><div class="line">  name_override = "net"</div><div class="line">  fieldpass = ["bytes_recv","bytes_sent"]</div></pre></td></tr></table></figure>
+<p>各个字段的含义在telegraf工具生成的配置文件都有很详细的描述，挑几个比较重要的配置做二次理解。</p>
+<ul>
+<li>agent.hostname 采集器部署机器的地址，这是区分机器最重要的配置。</li>
+<li>inputs.*.name_override 数据表名，采集的数据会写入此表。</li>
+</ul>
+<p>我们使用此配置启动采集器看看效果。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">➜  temp telegraf --config ./telegraf-demo.conf start</div><div class="line">2017-07-05T08:19:28Z I! Starting Telegraf (version 1.2.0-rc1-288-gf2bb4ac)</div><div class="line">2017-07-05T08:19:28Z I! Loaded outputs: influxdb</div><div class="line">2017-07-05T08:19:28Z I! Loaded inputs: inputs.cpu inputs.net</div><div class="line">2017-07-05T08:19:28Z I! Tags enabled: host=192.168.37.1</div><div class="line">2017-07-05T08:19:28Z I! Agent Config: Interval:10s, Quiet:false, Hostname:"192.168.37.1", Flush Interval:10s</div></pre></td></tr></table></figure>
+<p>启动日志能看出我们配置的outputs和inputs。</p>
+<p>回到influxdb的AdminUI，查询measurements，可以看到我们已经采集到了CPU和网络的数据。数据间隔10秒，字段与采集器配置的fieldpass一致。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNc79gy1fh939eu7a4j31kw138wpm.jpg" alt=""></p>
+<h3 id="安装Monitor-UI工具Grafana"><a href="#安装Monitor-UI工具Grafana" class="headerlink" title="安装Monitor UI工具Grafana"></a>安装Monitor UI工具Grafana</h3><p>Grafana是一个开源的监控工具，不仅仅是UI那么简单。安装教程：<a href="https://grafana.com/grafana/download?platform=mac" target="_blank" rel="external">https://grafana.com/grafana/download?platform=mac</a></p>
+<p>选择自己的平台，跟着教程一点点安装即可。如果你用的是linux(centos)，使用 <code>systemctl start grafana-server</code> 启动grafana服务。</p>
+<p>浏览器访问Grafana安装机器的3000端口打开Grafana，第一次访问时，会有个初始化工具的阶段，按照步骤一步一步来。</p>
+<p><img src="https://ws1.sinaimg.cn/large/006tNc79gy1fh93qrqeibj31i40dk760.jpg" alt=""></p>
+<p>创建好dashboard，我们接下来配置监控图表。</p>
+<h4 id="配置CPU图表"><a href="#配置CPU图表" class="headerlink" title="配置CPU图表"></a>配置CPU图表</h4><p>新建panel的主题是“Panel Title”，点击主题“Panel Title”，在弹出的Popup中选择“edit”，即可看到如下两张图的配置功能。</p>
+<p>第一张图是图表的General选项。</p>
+<p>第二张图是图表展示的核心配置，可以配置数据源，表，字段以及字段的计算函数等。</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNc79gy1fh97fm3oxhj311y0gs41w.jpg" alt=""></p>
+<ul>
+<li>修改图表主题为主机负载。</li>
+<li>查询语句选择usage_user和usage_system两个字段，分别展示主机用户负载和系统负载。DataSource选择刚才初始化时添加的数据源。</li>
+</ul>
+<p>配置完这两个tab之后，图表就会展示变化的曲线图了。</p>
+<p>类似下图：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNc79gy1fh97o9792bj31b20hg41u.jpg" alt=""></p>
+<p>在“Axes“标签页中可以修改左纵坐标的刻度单位，Unit选择”percent(0-100)”即可。</p>
+<h4 id="配置网络图表"><a href="#配置网络图表" class="headerlink" title="配置网络图表"></a>配置网络图表</h4><p>新建一个panel，用于配置网络IO的图表。</p>
+<p>按照下图配置网络监控图表的数据源。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNc79gy1fh981m6xyrj31aq0lqdj3.jpg" alt=""></p>
+<p>我把出网和入网放在一张图上，当然也可以配置到两个独立的Panel，这样看起来就不会有干扰了。最终的网络速率曲线图如下：</p>
+<p><img src="https://ws3.sinaimg.cn/large/006tNc79gy1fh9858nk9hj31as0hk40g.jpg" alt=""></p>
+<p>到这里我们已经完成了CPU和网络的数据采集和曲线图配置展示。</p>
+<p>接下来，我们准备用springboot快速开发一个简单的HTTP RESTful API，围绕它去做数据的采集和展示。</p>
+<h3 id="简易RESTful-API工程"><a href="#简易RESTful-API工程" class="headerlink" title="简易RESTful API工程"></a>简易RESTful API工程</h3><p>DEMO源码地址：<a href="https://github.com/0x0010/monitor-api-demo" target="_blank" rel="external">https://github.com/0x0010/monitor-api-demo</a></p>
+<p>系统只暴露了首页的API，并且使用Metrics实现了请求速率计算和访问次数统计。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@RestController</span></div><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">ApiIndexController</span> </span>&#123;</div><div class="line">  <span class="meta">@RequestMapping</span>(value = <span class="string">"/"</span>, method = RequestMethod.GET)</div><div class="line">  <span class="function"><span class="keyword">public</span> String <span class="title">index</span><span class="params">()</span> </span>&#123;</div><div class="line">    Monitor.idxTpsMark();</div><div class="line">    <span class="keyword">try</span> &#123;</div><div class="line">      Thread.sleep(<span class="number">50</span>);</div><div class="line">    &#125; <span class="keyword">catch</span> (InterruptedException ignore) &#123;</div><div class="line"></div><div class="line">    &#125;</div><div class="line">    <span class="keyword">return</span> <span class="string">"Greetings from Spring Boot!"</span>;</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>监控地址通过注册MonitorServlet暴露给采集器</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line"><span class="meta">@Bean</span></div><div class="line"><span class="function"><span class="keyword">public</span> ServletRegistrationBean <span class="title">monitorServlet</span><span class="params">()</span> </span>&#123;</div><div class="line">  <span class="keyword">return</span> <span class="keyword">new</span> ServletRegistrationBean(<span class="keyword">new</span> MonitorServlet(), <span class="string">"/monitor/*"</span>);</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<ul>
+<li><p>首页访问次数及TPS指标接口</p>
+<p>Path：/monitor/IdxTps</p>
+<p>接口返回值：{“idxCount”:0,”idx15mRate”:0.0,”idxMeanRate”:0.0,”idx1mRate”:0.0,”idx5mRate”:0.0}</p>
+</li>
+<li><p>JVM内存信息</p>
+<p>Path：/monitor/MemInfo</p>
+<p>接口返回值：{“heapMaxSize”:3817865216,”heapSize”:333971456}</p>
+</li>
+</ul>
+<h3 id="API-Demo指标采集器配置"><a href="#API-Demo指标采集器配置" class="headerlink" title="API Demo指标采集器配置"></a>API Demo指标采集器配置</h3><p>在telegraf.conf文件中继续追加input插件</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line">[[inputs.httpjson]]</div><div class="line">    name_override="index_tps"</div><div class="line">    servers = [</div><div class="line">       "http://127.0.0.1:8090/monitor/IdxTps"</div><div class="line">    ]</div><div class="line">    response_timeout="5s"</div><div class="line">    method="GET"</div><div class="line"></div><div class="line">[[inputs.httpjson]]</div><div class="line">    name_override="jvm_memory"</div><div class="line">    servers = [</div><div class="line">       "http://127.0.0.1:8090/monitor/MemInfo"</div><div class="line">    ]</div><div class="line">    response_timeout="5s"</div><div class="line">    method="GET"</div></pre></td></tr></table></figure>
+<p>我们使用influxdb的httpjson插件采集Demo暴露的两个指标接口。</p>
+<h3 id="配置应用指标展示"><a href="#配置应用指标展示" class="headerlink" title="配置应用指标展示"></a>配置应用指标展示</h3><p>现在应用指标有三个：首页访问次数，首页地址TPS和Jvm内存信息。首页的访问次数我们可以配置成数字的形式展示，另外两个指标继续配置成曲线图表。</p>
+<p>配置过程与cpu和网络的非常类似，最终的效果图如下</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNc79gy1fh9dgzg3i3j31kw08ujtu.jpg" alt=""></p>
+<p>在配置首页请求次数时，Options的stat要选择Current，否则默认的AVG会造成图表数据不准。</p>
+<p><img src="https://ws2.sinaimg.cn/large/006tNc79gy1fh9diky9hsj31300h6acc.jpg" alt=""></p>
+<p>至此，基于influxdb,telegraf和grafana的监控系统就开发完成了。</p>
+<p>过程很简单，基本没有什么阻碍，当然还有更多的监控功能等待我们去发掘和学习。</p>
+</div></article></div></main><footer><div class="paginator"><a href="/2017/06/high-performance-equals-ignore-case/" class="next">NEXT</a></div><div class="copyright"><p>© 2015 - 2017 <a href="http://0x0010.com">Sam Tsai</a>, Thanks Github.</p><p>Feel free to contact me: sam.ez.gud'AT'gmail.com</p></div></footer></div><script async src="//cdn.bootcss.com/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML" integrity="sha384-crwIf/BuaWM9rM65iM+dWFldgQ1Un8jWZMuh3puxb8TOY9+linwLoI7ZHZT+aekW" crossorigin="anonymous"></script></body></html>
