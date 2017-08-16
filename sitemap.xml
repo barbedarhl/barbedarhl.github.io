@@ -2,6 +2,13 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>http://0x0010.com/2017/08/diffrence-between-foreach-and-dowhile/</loc>
+    
+    <lastmod>2017-08-16T06:09:37.000Z</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>http://0x0010.com/2017/07/monitor-system-based-on-influxdb-grafana/</loc>
     
     <lastmod>2017-07-06T03:44:53.000Z</lastmod>
@@ -16,14 +23,14 @@
   </url>
   
   <url>
-    <loc>http://0x0010.com/2016/06/simple-select-sort-algorithm/</loc>
+    <loc>http://0x0010.com/2015/10/nginx-serves-multi-server-names/</loc>
     
     <lastmod>2017-06-08T09:35:37.000Z</lastmod>
     
   </url>
   
   <url>
-    <loc>http://0x0010.com/2015/10/nginx-serves-multi-server-names/</loc>
+    <loc>http://0x0010.com/2016/06/simple-select-sort-algorithm/</loc>
     
     <lastmod>2017-06-08T09:35:37.000Z</lastmod>
     
