@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://0x0010.com/"/>
-  <updated>2017-08-17T09:41:25.000Z</updated>
+  <updated>2017-09-11T09:23:55.000Z</updated>
   <id>http://0x0010.com/</id>
   
   <author>
@@ -14,6 +14,75 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>ThreadLocal在光连接池中的巧妙使用</title>
+    <link href="http://0x0010.com/2017/09/performance-promote-of-using-threadlocal-in-hikaricp/"/>
+    <id>http://0x0010.com/2017/09/performance-promote-of-using-threadlocal-in-hikaricp/</id>
+    <published>2017-09-11T09:11:00.000Z</published>
+    <updated>2017-09-11T09:23:55.000Z</updated>
+    
+    <content type="html"><![CDATA[<p>光连接池的并发包（ConcurrentBag）中使用了ThreadLocal来避免并发竞争，从而提升并发性能。这边文章的重点是测试连接池在使用和不使用ThreadLocal的情况下，性能有多大差别。今天就针对这个ThreadLocal做个测试。<br><a id="more"></a><br>测试场景准备：</p>
+<ul>
+<li>连接池最大连接数5</li>
+<li>使用Springboot搭建一个单表查询接口。并发场景使用JMeter模拟</li>
+<li>Oracle HotSpot 1.8.0-144，堆最大内存256M。这次测试不是吃内存的场景，所以256M的堆不算小。</li>
+</ul>
+<h3 id="添加度量代码"><a href="#添加度量代码" class="headerlink" title="添加度量代码"></a>添加度量代码</h3><p>将光连接池包里的ConcurrentBag代码拷贝至工程源码目录。为了方便增加Metrics的Timer，重命名borrow方法为borrow0，然后新增我们自定义的borrow方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> T <span class="title">borrow</span><span class="params">(<span class="keyword">long</span> timeout, <span class="keyword">final</span> TimeUnit timeUnit)</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</div><div class="line">  Context timerContext = borrowTimer.time();</div><div class="line">  <span class="keyword">try</span> &#123;</div><div class="line">    <span class="keyword">return</span> borrow0(timeout, timeUnit);</div><div class="line">  &#125; <span class="keyword">finally</span> &#123;</div><div class="line">    timerContext.stop();</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>borrowTimer的信息使用ConsoleReporter输出。</p>
+<h3 id="使用ThreadLocal"><a href="#使用ThreadLocal" class="headerlink" title="使用ThreadLocal"></a>使用ThreadLocal</h3><p>我们先保持光连接池的核心代码不动，使用5个线程调用一个查询语句50万次，看看borrow方法的性能。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line">         count = 500005</div><div class="line">     mean rate = 1020.39 calls/second</div><div class="line"> 1-minute rate = 832.91 calls/second</div><div class="line"> 5-minute rate = 830.20 calls/second</div><div class="line">15-minute rate = 432.81 calls/second</div><div class="line">           min = 0.00 nanoseconds</div><div class="line">           max = 45000.00 nanoseconds</div><div class="line">          mean = 1368.68 nanoseconds</div><div class="line">        stddev = 2252.18 nanoseconds</div><div class="line">        median = 1000.00 nanoseconds</div><div class="line">          75% &lt;= 1000.00 nanoseconds</div><div class="line">          95% &lt;= 3000.00 nanoseconds</div><div class="line">          98% &lt;= 4000.00 nanoseconds</div><div class="line">          99% &lt;= 7000.00 nanoseconds</div><div class="line">        99.9% &lt;= 44623.00 nanoseconds</div></pre></td></tr></table></figure>
+<p>count等于500005是因为光连接池初始化时也调用了borrow方法导致的，实际业务调用次数是50万次。我们重点关注平均值mean = 1368.68 nanoseconds。记住这个值，待会与不使用ThreadLocal的连接池进行对比。</p>
+<h3 id="不使用ThreadLocal"><a href="#不使用ThreadLocal" class="headerlink" title="不使用ThreadLocal"></a>不使用ThreadLocal</h3><p>我们把borrow和requite方法中使用threadLocal的代码注释掉，再重复之前的测试。测试结果如下：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line">         count = 500005</div><div class="line">     mean rate = 943.38 calls/second</div><div class="line"> 1-minute rate = 610.01 calls/second</div><div class="line"> 5-minute rate = 766.17 calls/second</div><div class="line">15-minute rate = 420.66 calls/second</div><div class="line">           min = 0.00 nanoseconds</div><div class="line">           max = 205000.00 nanoseconds</div><div class="line">          mean = 3081.71 nanoseconds</div><div class="line">        stddev = 13136.36 nanoseconds</div><div class="line">        median = 1000.00 nanoseconds</div><div class="line">          75% &lt;= 1000.00 nanoseconds</div><div class="line">          95% &lt;= 17750.00 nanoseconds</div><div class="line">          98% &lt;= 29000.00 nanoseconds</div><div class="line">          99% &lt;= 68390.00 nanoseconds</div><div class="line">        99.9% &lt;= 203144.00 nanoseconds</div></pre></td></tr></table></figure>
+<p>不使用ThreadLocal的情况下，连接的平均借出时间是3081纳秒。而使用ThreadLocal的性能却足足提升了一倍以上，达到1368纳秒。</p>
+<h3 id="庐山真面目"><a href="#庐山真面目" class="headerlink" title="庐山真面目"></a>庐山真面目</h3><p>现在来看看，光连接池是怎么使用ThreadLocal的。</p>
+<p>先看看borrow方法中的代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div></pre></td><td class="code"><pre><div class="line"><span class="comment">// 初始化线程变量</span></div><div class="line">List&lt;Object&gt; list = threadList.get();</div><div class="line"><span class="keyword">if</span> (weakThreadLocals &amp;&amp; list == <span class="keyword">null</span>) &#123;</div><div class="line">  list = <span class="keyword">new</span> ArrayList&lt;&gt;(<span class="number">16</span>);</div><div class="line">  threadList.set(list);</div><div class="line">&#125;</div><div class="line"></div><div class="line"><span class="comment">// 从List尾部移除元素时，可以避免数组拷贝，赞！</span></div><div class="line"><span class="keyword">for</span> (<span class="keyword">int</span> i = list.size() - <span class="number">1</span>; i &gt;= <span class="number">0</span>; i--) &#123;</div><div class="line">  <span class="keyword">final</span> Object entry = list.remove(i);</div><div class="line">  <span class="meta">@SuppressWarnings</span>(<span class="string">"unchecked"</span>) <span class="keyword">final</span> T bagEntry =</div><div class="line">      weakThreadLocals ? ((WeakReference&lt;T&gt;) entry).get() : (T) entry;</div><div class="line">  <span class="comment">// 使用AtomicIntegerFieldUpdater更新Entry的State</span></div><div class="line">  <span class="comment">// 如果从本地线程变量中找到可用连接直接返回。</span></div><div class="line">  <span class="keyword">if</span> (bagEntry != <span class="keyword">null</span> &amp;&amp; bagEntry.compareAndSet(STATE_NOT_IN_USE, STATE_IN_USE)) &#123;</div><div class="line">    <span class="keyword">return</span> bagEntry;</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>短短几行代码，尽是作者的思考，很棒。</p>
+<p>再来看看return方法，光连接池中叫requite方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">requite</span><span class="params">(<span class="keyword">final</span> T bagEntry)</span> </span>&#123;</div><div class="line">  <span class="comment">// 设置连接状态为空闲</span></div><div class="line">  bagEntry.setState(STATE_NOT_IN_USE);</div><div class="line"></div><div class="line">  <span class="comment">// 还连接时，如果正好有其他线程正在等待获取连接</span></div><div class="line">  <span class="comment">// 直接将待归还的连接移交给其他线程。</span></div><div class="line">  <span class="keyword">while</span> (waiters.get() &gt; <span class="number">0</span>) &#123;</div><div class="line">    <span class="keyword">if</span> (handoffQueue.offer(bagEntry)) &#123;</div><div class="line">      <span class="keyword">return</span>;</div><div class="line">    &#125;</div><div class="line">    yield();</div><div class="line">  &#125;</div><div class="line"></div><div class="line">  <span class="comment">// 还连接时没有其他线程在等待连接，则将此连接添加到</span></div><div class="line">  <span class="comment">// 本地线程变量里。</span></div><div class="line">  <span class="keyword">final</span> List&lt;Object&gt; threadLocalList = threadList.get();</div><div class="line">  <span class="keyword">if</span> (threadLocalList != <span class="keyword">null</span>) &#123;</div><div class="line">    threadLocalList.add(weakThreadLocals ? <span class="keyword">new</span> WeakReference&lt;&gt;(bagEntry) : bagEntry);</div><div class="line">  &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<h3 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h3><ul>
+<li>为什么测试性能时使用了5个并发线程呢？因为连接池的最大连接数是5个，5个线程能最大程度地利用ThreadLocal特性，减少同步队列的阻塞时间。</li>
+<li>当并发数接近连接池最大线程数时，使用ThreadLocal可以提升连接的获取性能。其实这个技巧也可以用在平时的编码工作中，作为一个避免或者减少并发竞争的优化方案。</li>
+</ul>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;光连接池的并发包（ConcurrentBag）中使用了ThreadLocal来避免并发竞争，从而提升并发性能。这边文章的重点是测试连接池在使用和不使用ThreadLocal的情况下，性能有多大差别。今天就针对这个ThreadLocal做个测试。&lt;br&gt;
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>Arrays.sort遗留排序算法</title>
+    <link href="http://0x0010.com/2017/08/java-arrays-sort-legacy-merge-sort-source-analyze/"/>
+    <id>http://0x0010.com/2017/08/java-arrays-sort-legacy-merge-sort-source-analyze/</id>
+    <published>2017-08-21T06:09:00.000Z</published>
+    <updated>2017-08-21T08:34:19.000Z</updated>
+    
+    <content type="html"><![CDATA[<p>LegacyMergeSort是JDK中一个遗留排序算法，在1.7+的JDK里，Arrays.sort(Object[])默认不使用legacyMergeSort算法，并且这个方法会在未来版本中删除。<br>虽然是老的排序算法，但还是有分析的价值。只有搞清楚新旧算法的差异，才能真正明白JDK为什么要废除这种算法。<br><a id="more"></a><br>LegacyMergeSort的核心方法是<code>java.util.Arrays#mergeSort(java.lang.Object[], java.lang.Object[], int, int, int)</code>。代码很简短，下面我们来一步步地分析这个方法。</p>
+<h3 id="启用LegacyMergeSort算法"><a href="#启用LegacyMergeSort算法" class="headerlink" title="启用LegacyMergeSort算法"></a>启用LegacyMergeSort算法</h3><p>如上节所述，遗留算法将在未来版本中删除，所以现在的JDK默认已经不再使用了。但是JDK给我们一个选择，看如下代码：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">sort</span><span class="params">(Object[] a)</span> </span>&#123;</div><div class="line">    <span class="keyword">if</span> (LegacyMergeSort.userRequested)</div><div class="line">        legacyMergeSort(a);</div><div class="line">    <span class="keyword">else</span></div><div class="line">        ComparableTimSort.sort(a);</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p><code>LegacyMergeSort.userRequested</code>是一个布尔类型的常量，可以通过系统参数<code>-Djava.util.Arrays.useLegacyMergeSort=true</code>指定。</p>
+<h3 id="算法分析"><a href="#算法分析" class="headerlink" title="算法分析"></a>算法分析</h3><p>mergeSort代码很少，理解起来并不难。主要使用的是二分插入排序，使用递归将长度大于等于7的数组分成前后两端，直至分成的短数组长度小于7之后，对短数组使用插入排序，最后再将排序后的前后两段合并成一个有序数组。</p>
+<p>当数组长度小于7时，使用插入排序算法<br><figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">if</span> (length &lt; INSERTIONSORT_THRESHOLD) &#123;</div><div class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i=low; i&lt;high; i++)</div><div class="line">        <span class="keyword">for</span> (<span class="keyword">int</span> j=i; j&gt;low &amp;&amp;</div><div class="line">                 ((Comparable) dest[j-<span class="number">1</span>]).compareTo(dest[j])&gt;<span class="number">0</span>; j--)</div><div class="line">            swap(dest, j, j-<span class="number">1</span>);</div><div class="line">    <span class="keyword">return</span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>插入排序算法的过程总结为：遍历数组，当前下标的元素比前一个元素小，则交换这两个元素。继续往前遍历，并重复这个比较的过程，直到前一个元素比后一个元素小终止。</p>
+<p>已数组 [10, 4, 11, 90, 3, 8] 为例，下图描述了整个插入排序的过程：</p>
+<p><img src="https://github.com/0x0010/notebook/raw/master/resources/Arrays-sort-legacy-merge-sort.png" alt="插入排序示例"></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;LegacyMergeSort是JDK中一个遗留排序算法，在1.7+的JDK里，Arrays.sort(Object[])默认不使用legacyMergeSort算法，并且这个方法会在未来版本中删除。&lt;br&gt;虽然是老的排序算法，但还是有分析的价值。只有搞清楚新旧算法的差异，才能真正明白JDK为什么要废除这种算法。&lt;br&gt;
+    
+    </summary>
+    
+    
+  </entry>
   
   <entry>
     <title>Java方法锁（synchronized）</title>
